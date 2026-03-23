@@ -1,0 +1,16 @@
+@import "tailwindcss";
+
+@theme {
+  /* Colors sampled from your VHL clothing reference */
+  --color-vhl-grey: #94a3b8;    /* The sweatshirt sleeves */
+  --color-vhl-maroon: #7f1d1d;  /* The shoulder yoke */
+  --color-vhl-lead: #18181b;    /* The ink stamp black */
+  --color-vhl-linen: #f8fafc;   /* The high-readability white */
+
+  --font-mono: "JetBrains Mono", monospace;
+  --font-sans: "Inter", sans-serif;
+}
+
+body {
+  @apply bg-vhl-linen text-vhl-lead font-sans antialiased;
+}
