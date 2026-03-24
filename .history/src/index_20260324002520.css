@@ -1,0 +1,63 @@
+@import "tailwindcss";
+
+@theme {
+  /* --- The VHL (Vankila-Punk) Palette --- */
+  --color-vhl-grey: #94a3b8;
+  /* From the sweatshirt sleeves */
+  --color-vhl-maroon: #7f1d1d;
+  /* The oxblood/red header color */
+  --color-vhl-lead: #18181b;
+  /* The deep black border/ink color */
+  --color-vhl-linen: #f1f5f9;
+  /* The soft institutional background */
+
+  /* --- Typography Protocols --- */
+  --font-mono: "JetBrains Mono", "Fira Code", monospace;
+  --font-sans: "Inter", system-ui, sans-serif;
+}
+
+/* --- Base Layer Protocols --- */
+@layer base {
+  body {
+    @apply bg-vhl-linen text-vhl-lead font-sans antialiased selection:bg-vhl-maroon selection:text-white;
+    /* Ensure no horizontal scroll during door animation */
+    overflow-x: hidden;
+  }
+}
+
+/* --- The "Solitary Door" Texture --- */
+.metal-grain {
+  position: relative;
+}
+
+/* This adds the cold, pitted iron look to your door component */
+.metal-grain::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 10;
+  opacity: 0.14;
+  pointer-events: none;
+  /* High-fidelity procedural noise */
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E");
+}
+
+/* --- Custom Utility: Horizontal Door Grooves --- */
+.vhl-door-panels {
+  background-image: repeating-linear-gradient(to bottom,
+      transparent,
+      transparent 78px,
+      rgba(0, 0, 0, 0.4) 78px,
+      rgba(0, 0, 0, 0.4) 80px);
+  background-size: 100% 80px;
+}
+
+/* --- Readability Enhancements --- */
+.prose {
+  @apply max-w-none text-vhl-lead leading-relaxed;
+}
+
+.prose h2,
+.prose h3 {
+  @apply font-mono uppercase font-black tracking-tighter;
+}
