@@ -1,146 +1,234 @@
-import { useState, useRef } from "react";
+import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { ShieldAlert, Activity, ArrowRight, Lock } from "lucide-react";
+import { client, urlFor } from "./sanityClient";
+import { PortableText } from "@portabletext/react";
+import { ptComponents } from "./PortableTextComponents";
+import {
+  Activity,
+  Sun,
+  Moon,
+  Square,
+  ChevronRight,
+  Target,
+  Camera,
+  Fingerprint,
+} from "lucide-react";
 
-// --- THE SOLITARY DOOR COMPONENT ---
-function SolitaryDoor({ onComplete }: { onComplete: () => void }) {
-  const [isUnlocked, setIsUnlocked] = useState(false);
-  const audioRef = useRef<HTMLAudioElement | null>(null);
+// MODULAR COMPONENTS
+import { SolitaryDoor } from "./components/SolitaryDoor";
+import { SystemLogTicker } from "./components/SystemLogTicker";
+import { FullscreenDossier } from "./components/FullscreenDossier";
+import { AboutDossier } from "./components/AboutDossier";
 
-  const handleStart = () => {
-    // Audio trigger - Place gate-clank.mp3 in /public/
-    audioRef.current = new Audio("/gate-clank.mp3");
-    audioRef.current.play().catch(() => console.log("Audio blocked."));
-    setIsUnlocked(true);
+export default function App() {
+  const [isDarkMode, setIsDarkMode] = useState(false);
+
+  // --- LOGIC: ONLY VIEW ANIMATION ON INITIAL LOAD ---
+  // Checks sessionStorage so the door stays open during refreshes/navigation
+  const [isEntryComplete, setEntryComplete] = useState(() => {
+    if (typeof window !== "undefined") {
+      return sessionStorage.getItem("vanki_access") === "granted";
+    }
+    return false;
+  });
+
+  const [reports, setReports] = useState<any[]>([]);
+  const [selectedReport, setSelectedReport] = useState<any | null>(null);
+  const [showAbout, setShowAbout] = useState(false);
+
+  // FETCH INCIDENT REPORTS FROM SANITY
+  useEffect(() => {
+    client
+      .fetch(`*[_type == "post"] | order(publishedAt desc)`)
+      .then(setReports);
+  }, []);
+
+  // --- THE HANDSHAKE PROTOCOL (SOUND + DOOR EXIT) ---
+  const handleEntryProtocol = () => {
+    // 1. Play the Heavy Gate Sound (ensure file is in /public)
+    const clank = new Audio("/gate-clank.mp3");
+    clank.volume = 0.6;
+    clank.play().catch((err) => console.warn("Audio blocked by browser:", err));
+
+    // 2. Grant Session Access (Prevents door from reappearing on refresh)
+    sessionStorage.setItem("vanki_access", "granted");
+
+    // 3. Trigger the exit animation
+    setEntryComplete(true);
   };
 
+  const latest = reports[0];
+  const archives = reports.slice(1);
+
   return (
-    <div className="fixed inset-0 z-[9999] bg-[#09090b] flex items-center justify-center [perspective:2500px] overflow-hidden">
-      {/* 1. ACCESS PROMPT */}
-      <AnimatePresence>
-        {!isUnlocked && (
+    <div className={isDarkMode ? "dark" : ""}>
+      <div className="cell-main-bg relative overflow-x-hidden antialiased font-mono min-h-screen transition-colors duration-500">
+        {/* 1. ENTRY MODULE: THE HEAVY VAULT DOOR */}
+        <AnimatePresence mode="wait">
+          {!isEntryComplete && (
+            <SolitaryDoor key="gate" onComplete={handleEntryProtocol} />
+          )}
+        </AnimatePresence>
+
+        {/* 2. MAIN TERMINAL DASHBOARD */}
+        {isEntryComplete && (
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
-            exit={{ opacity: 0, transition: { duration: 0.8 } }}
-            className="absolute inset-0 z-[10001] flex items-center justify-center bg-black/60 backdrop-blur-md"
+            transition={{ delay: 0.8, duration: 1.2 }}
           >
-            <button
-              onClick={handleStart}
-              className="bg-[#7f1d1d] text-[#f1f5f9] px-12 py-6 font-mono font-black uppercase tracking-[0.4em] border-4 border-[#18181b] shadow-[12px_12px_0px_0px_rgba(0,0,0,1)] hover:bg-red-800 transition-all active:translate-y-1"
-            >
-              Request Access_
-            </button>
+            {/* FIXED HEADER HUD */}
+            <header className="fixed top-0 left-0 right-0 z-[500] bg-black p-4 border-b-4 border-cell-mustard shadow-2xl">
+              <div className="max-w-7xl mx-auto flex justify-between items-center">
+                <div className="flex items-center gap-3">
+                  <Square
+                    size={18}
+                    className="fill-cell-mustard text-cell-mustard"
+                  />
+                  <span className="hidden md:block text-white font-black text-[10px] uppercase tracking-widest">
+                    UNIT_666 // HKI_FACILITY
+                  </span>
+                </div>
+
+                <h2 className="text-white font-black text-xl md:text-2xl tracking-tighter uppercase italic">
+                  ISO-GATE <span className="text-cell-mustard">// 666</span>
+                </h2>
+
+                <div className="flex items-center gap-4">
+                  {/* THEME TOGGLE */}
+                  <button
+                    onClick={() => setIsDarkMode(!isDarkMode)}
+                    className="p-2 bg-white text-black border-2 border-black hover:bg-cell-mustard transition-all cursor-pointer shadow-[2px_2px_0px_black]"
+                  >
+                    {isDarkMode ? <Sun size={18} /> : <Moon size={18} />}
+                  </button>
+
+                  {/* MANIFESTO ACCESS BUTTON */}
+                  <button
+                    onClick={() => setShowAbout(true)}
+                    className="bg-cell-mustard text-black px-4 py-2 border-2 border-black shadow-[4px_4px_0px_black] font-black text-[10px] uppercase hover:bg-white hover:translate-x-0.5 hover:translate-y-0.5 hover:shadow-none transition-all cursor-pointer flex items-center gap-2 group"
+                  >
+                    <Fingerprint
+                      size={14}
+                      className="group-hover:animate-pulse"
+                    />
+                    <span>Manifesto</span>
+                  </button>
+                </div>
+              </div>
+            </header>
+
+            {/* CONTENT VIEWPORT */}
+            <main className="pt-40 pb-64 px-6 max-w-5xl mx-auto space-y-32">
+              {/* LATEST INCIDENT REPORT */}
+              {latest ? (
+                <article className="space-y-10 group">
+                  <div className="bg-cell-mustard p-3 border-4 border-black shadow-[10px_10px_0px_black] flex justify-between items-center font-black text-[11px] uppercase text-black">
+                    <span className="flex items-center gap-2">
+                      <Activity size={14} className="animate-pulse" />{" "}
+                      Handshake_Live
+                    </span>
+                    <span className="hidden md:block tracking-widest">
+                      REG_ID: {latest._id.slice(0, 12).toUpperCase()}
+                    </span>
+                  </div>
+
+                  <div className="cell-panel">
+                    {/* EVIDENCE IMAGE */}
+                    {latest.mainImage && (
+                      <div className="relative mb-12 border-b-8 border-black -mx-8 -mt-8 overflow-hidden group/img">
+                        <img
+                          src={urlFor(latest.mainImage).width(1200).url()}
+                          alt="Evidence_Visual"
+                          className="w-full h-[500px] object-cover grayscale contrast-125 brightness-75 group-hover/img:brightness-100 group-hover/img:grayscale-0 transition-all duration-700"
+                        />
+                        <div className="absolute inset-0 pointer-events-none border-[20px] border-black/10 flex items-center justify-center">
+                          <div className="border-4 border-red-600/20 text-red-600/20 px-10 py-4 font-black text-5xl md:text-8xl uppercase rotate-[-15deg] select-none">
+                            CLASSIFIED // 666
+                          </div>
+                        </div>
+                        <div className="absolute bottom-4 left-6 bg-black text-white px-4 py-1 text-[10px] font-black uppercase flex items-center gap-2">
+                          <Camera size={12} /> Evidence_Frame_01
+                        </div>
+                      </div>
+                    )}
+
+                    <h3 className="text-4xl md:text-7xl font-black uppercase mb-10 text-cell-blue italic border-b-8 border-black pb-8 leading-none tracking-tighter">
+                      {latest.title}
+                    </h3>
+
+                    <div className="prose prose-zinc dark:prose-invert max-w-none text-xl md:text-2xl font-bold leading-tight text-[var(--text-main)]">
+                      <PortableText
+                        value={latest.body}
+                        components={ptComponents}
+                      />
+                    </div>
+                  </div>
+                </article>
+              ) : (
+                <div className="h-64 flex items-center justify-center font-black uppercase opacity-20">
+                  Waiting_for_Uplink...
+                </div>
+              )}
+
+              {/* ARCHIVE NODES: Theme-Synced Cards */}
+              <section className="grid grid-cols-1 md:grid-cols-3 gap-12">
+                {archives.map((r) => (
+                  <div
+                    key={r._id}
+                    onClick={() => setSelectedReport(r)}
+                    className="cell-panel bg-[var(--panel-bg)] text-[var(--text-main)] cursor-pointer hover:bg-cell-blue hover:text-white transition-all group shadow-[8px_8px_0px_black] border-black dark:border-white/10"
+                  >
+                    <div className="flex justify-between items-start mb-10">
+                      <Target
+                        className="text-red-600 opacity-20 group-hover:opacity-100 group-hover:scale-110 transition-all"
+                        size={24}
+                      />
+                      <span className="text-[9px] font-black uppercase opacity-30">
+                        Node_ID: {r._id.slice(0, 6)}
+                      </span>
+                    </div>
+                    <h5 className="text-2xl font-black uppercase leading-tight group-hover:translate-x-1 transition-transform">
+                      {r.title}
+                    </h5>
+                    <div className="mt-12 pt-4 border-t-4 border-black/10 flex justify-between items-center">
+                      <span className="text-[10px] font-black uppercase">
+                        Inspect_Log
+                      </span>
+                      <ChevronRight
+                        size={20}
+                        className="group-hover:translate-x-2 transition-transform"
+                      />
+                    </div>
+                  </div>
+                ))}
+              </section>
+            </main>
+
+            {/* SYSTEM TICKER */}
+            <footer className="fixed bottom-0 left-0 right-0 z-[500]">
+              <SystemLogTicker isDarkMode={isDarkMode} />
+            </footer>
           </motion.div>
         )}
-      </AnimatePresence>
 
-      {/* 2. THE HEAVY DOOR */}
-      <motion.div
-        initial={{ rotateY: 0 }}
-        animate={
-          isUnlocked
-            ? {
-                rotateY: -150,
-                opacity: [1, 1, 1, 0],
-              }
-            : { rotateY: 0 }
-        }
-        transition={{
-          duration: 6, // Heavy, slow swing
-          ease: [0.45, 0, 0.2, 1],
-          opacity: { times: [0, 0.9, 0.98, 1], duration: 6 },
-        }}
-        // THE FIX: Only call onComplete if the door actually unlocked and swung open
-        onAnimationComplete={() => {
-          if (isUnlocked) {
-            onComplete();
-          }
-        }}
-        style={{ originX: 0 }}
-        className="absolute inset-0 w-full h-full bg-[#94a3b8] border-l-[60px] border-[#18181b] relative flex flex-col shadow-[80px_0_150px_rgba(0,0,0,1)]"
-      >
-        <div
-          className="absolute inset-0 opacity-20"
-          style={{
-            backgroundImage:
-              "repeating-linear-gradient(to bottom, transparent, transparent 78px, #000 78px, #000 80px)",
-          }}
-        />
-
-        <div className="absolute top-[12%] left-1/2 -translate-x-1/2 font-mono text-[100px] font-black text-black/10 italic select-none">
-          666
-        </div>
-
-        {/* Judas Eye */}
-        <div className="absolute top-[30%] left-1/2 -translate-x-1/2 w-44 h-56 bg-[#94a3b8] border-4 border-[#18181b] shadow-2xl flex flex-col p-1">
-          <div className="w-full h-3 bg-red-950 mb-1" />
-          <div className="flex-1 bg-zinc-900 border-2 border-black flex items-center justify-center">
-            <div className="w-2 h-2 rounded-full bg-red-500 animate-pulse shadow-[0_0_10px_red]" />
-          </div>
-        </div>
-
-        {/* Handle */}
-        <div className="absolute right-24 top-1/2 -translate-y-1/2">
-          <div className="w-14 h-[500px] bg-zinc-800 rounded-full border-r-8 border-white/5 shadow-2xl" />
-        </div>
-      </motion.div>
-
-      {/* 3. BACKGROUND BEHIND DOOR */}
-      <div className="absolute inset-0 -z-10 bg-[#09090b] flex flex-col items-center justify-center">
-        <Activity className="text-[#7f1d1d] animate-spin mb-4" size={40} />
-        <span className="font-mono text-[#94a3b8] text-[10px] tracking-[0.5em] animate-pulse">
-          ESTABLISHING_VHL_LINK...
-        </span>
+        {/* OVERLAY MODALS */}
+        <AnimatePresence>
+          {selectedReport && (
+            <FullscreenDossier
+              key="modal-dossier"
+              report={selectedReport}
+              onClose={() => setSelectedReport(null)}
+            />
+          )}
+          {showAbout && (
+            <AboutDossier
+              key="modal-about"
+              onClose={() => setShowAbout(false)}
+            />
+          )}
+        </AnimatePresence>
       </div>
-    </div>
-  );
-}
-
-// --- MAIN PAGE ---
-export default function App() {
-  const [isEntryComplete, setEntryComplete] = useState(false);
-
-  return (
-    <div className="min-h-screen bg-[#f1f5f9] font-sans flex flex-col overflow-x-hidden">
-      <AnimatePresence>
-        {!isEntryComplete && (
-          <motion.div key="intro" exit={{ opacity: 0 }}>
-            <SolitaryDoor onComplete={() => setEntryComplete(true)} />
-          </motion.div>
-        )}
-      </AnimatePresence>
-
-      <header className="bg-[#7f1d1d] text-[#f1f5f9] p-6 border-b-8 border-[#18181b] flex justify-between items-center sticky top-0 z-40">
-        <div className="flex items-center gap-3">
-          <ShieldAlert size={28} className="text-[#94a3b8]" />
-          <h1 className="font-mono font-black text-2xl uppercase italic tracking-tighter">
-            Vankila-Punk // Registry
-          </h1>
-        </div>
-      </header>
-
-      <main className="flex-grow max-w-5xl mx-auto w-full p-6 md:p-12 lg:pt-20">
-        <section className="bg-white border-[8px] border-[#18181b] shadow-[24px_24px_0px_0px_rgba(24,24,27,1)]">
-          <div className="bg-[#94a3b8] p-4 border-b-4 border-[#18181b] font-mono text-xs font-black uppercase text-[#18181b]">
-            Protocol: Solitary_666_Active
-          </div>
-          <div className="p-10 md:p-20">
-            <h2 className="text-5xl md:text-8xl font-black text-[#18181b] uppercase leading-[0.8] mb-8">
-              The Aesthetic <br />
-              Of <span className="text-[#7f1d1d]">Containment</span>
-            </h2>
-            <p className="text-xl md:text-2xl font-medium leading-relaxed text-[#18181b]/90 max-w-2xl">
-              Access granted. The Finnish institutional design record is now
-              available for review.
-            </p>
-          </div>
-        </section>
-      </main>
-
-      <footer className="bg-[#18181b] text-[#94a3b8]/40 p-12 mt-20 font-mono text-[10px] uppercase tracking-[0.5em] text-center border-t-8 border-[#7f1d1d]">
-        Property of Unit 666 // Authorized Access Only // 2026
-      </footer>
     </div>
   );
 }
